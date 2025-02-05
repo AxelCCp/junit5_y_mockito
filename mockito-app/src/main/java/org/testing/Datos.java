@@ -1,4 +1,4 @@
-package org.testing.service;
+package org.testing;
 
 import org.testing.model.Examen;
 

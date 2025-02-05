@@ -7,11 +7,13 @@ import org.mockito.*;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.stubbing.Answer;
+import org.testing.Datos;
 import org.testing.dao.ExamenDao;
+import org.testing.dao.ExamenRepositoryImpl;
 import org.testing.dao.PreguntaDao;
+import org.testing.dao.PreguntaDapImpl;
 import org.testing.model.Examen;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -305,11 +307,90 @@ class ExamenServiceImplTest {
         verify(preguntaDao).findPreguntasPorExamenId(anyLong());
     }
 
+    @Mock
+    ExamenRepositoryImpl examenRepositoryImpl;
+    @Mock
+    PreguntaDapImpl preguntaDaoImpl;
 
     //50
-    //que papsa si se quuiere invocar el metodo real,  no un mock con el valor inventado.
-
+    //se quiere invocar el metodo real,  no un mock con el valor inventado. En este ejemplo, se requerira una implementacion real de los repositories.
     //se invoca al metodo real
+    @Test
+    void testDoCallRealMethod() {
+        when(examenRepositoryImpl.findAll()).thenReturn(Datos.EXAMENES);
+        doCallRealMethod().when(preguntaDaoImpl).findPreguntasPorExamenId(anyLong());
+        Examen examen = examenService.findExamenPorNombreConPreguntas("matematicas");
+        assertEquals(5L, examen.getId());
+        assertEquals("matematicas", examen.getNombre());
+    }
+
+    /*
+    @Spy
+    ExamenRepositoryImpl examenRepositoryImpl;
+    @Spy
+    PreguntaDapImpl preguntaDaoImpl;
+    */
+
+    //51
+    @Test
+    void testSpy() {
+        ExamenDao examenDao1 = spy(ExamenRepositoryImpl.class);
+        PreguntaDao preguntaDao1 = spy(PreguntaDapImpl.class);
+        ExamenService examenService1 = new ExamenServiceImpl(examenDao1, preguntaDao1);
+        Examen examen = examenService1.findExamenPorNombreConPreguntas("matematicas");
+        assertEquals(5, examen.getId());
+        assertEquals("matematicas", examen.getNombre());
+        assertEquals(5, examen.getPreguntas().size());
+        assertTrue(examen.getPreguntas().contains("aritmetica"));
+    }
+
+
+    //52 - verificacion de orden de invocacion de los metodos
+    @Test
+    void test_orden_invocaciones() {
+        when(examenDao.findAll()).thenReturn(Datos.EXAMENES);
+        examenService.findExamenPorNombreConPreguntas("matematicas");
+        examenService.findExamenPorNombreConPreguntas("lenguaje");
+        InOrder inOrder = inOrder(preguntaDao);
+        inOrder.verify(preguntaDao).findPreguntasPorExamenId(5L);
+        inOrder.verify(preguntaDao).findPreguntasPorExamenId(6L);
+    }
+
+
+    @Test
+    void test_orden_invocaciones_2() {
+        when(examenDao.findAll()).thenReturn(Datos.EXAMENES);
+        examenService.findExamenPorNombreConPreguntas("matematicas");
+        examenService.findExamenPorNombreConPreguntas("lenguaje");
+        InOrder inOrder = inOrder(examenDao, preguntaDao);
+        inOrder.verify(examenDao).findAll();
+        inOrder.verify(preguntaDao).findPreguntasPorExamenId(5L);
+        inOrder.verify(examenDao).findAll();
+        inOrder.verify(preguntaDao).findPreguntasPorExamenId(6L);
+    }
+
+
+    //53 - contando el numero de invocaciones de los mocks
+    @Test
+    void testNumeroDeInvocaciones() {
+        when(examenDao.findAll()).thenReturn(Datos.EXAMENES);
+        examenService.findExamenPorNombreConPreguntas("matematicas");
+        verify(preguntaDao, times(1)).findPreguntasPorExamenId(5L);                 //times() : recibe por argumento la cantidad de veces que se espera que  se llame un metodo.
+        verify(preguntaDao, atLeast(1)).findPreguntasPorExamenId(5L);               //atLeast() : se espera que se ejecute almenos el numero pasado por parametro.
+        verify(preguntaDao, atLeastOnce()).findPreguntasPorExamenId(5L);            //atLeastOnce() : esperamos a q se ejecute almenos una vez.
+        verify(preguntaDao, atMost(1)).findPreguntasPorExamenId(5L);                //atMost() : esperamos a q se ejecute a lo más, la cantidad pasada por parametro.
+        verify(preguntaDao, atMostOnce()).findPreguntasPorExamenId(5L);             //atMostOnce() : esperamos q se ejecute como maximo una vez.
+    }
+
+
+    @Test
+    void testNumeroDeInvocaciones_2() {
+        when(examenDao.findAll()).thenReturn(Collections.emptyList());
+        examenService.findExamenPorNombreConPreguntas("matematicas");
+        verify(preguntaDao, never()).findPreguntasPorExamenId(5L);                  //never() : se espera que nunca se llame al metodo findPreguntasPorExamenId.
+        verifyNoInteractions(preguntaDao);                                          //verifica q no hay interacciones con el mock preguntaDao
+    }
+
 
 
 
